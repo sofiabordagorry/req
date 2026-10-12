@@ -215,6 +215,76 @@ defmodule Req.Fields do
   end
 
   @doc """
+  Updates the field `name` with the given function.
+
+  If the field is present, `fun` is invoked with its list of values and the result
+  replaces them. Otherwise, `default` is inserted.
+
+  ## Examples
+
+      iex> Req.Fields.update(%{"a" => ["1"]}, "A", "0", &(&1 ++ ["2"]))
+      %{"a" => ["1", "2"]}
+  """
+  def update(fields, name, default, fun)
+
+  if @legacy? do
+    def update(fields, name, default, fun) when is_binary(name) and is_function(fun, 1) do
+      case get_values(fields, name) do
+        [] -> put_values(fields, name, default)
+        values -> put_values(fields, name, fun.(values))
+      end
+    end
+  else
+    def update(fields, name, default, fun) when is_binary(name) and is_function(fun, 1) do
+      name = ensure_name_downcase(name)
+      Map.update(fields, name, wrap_values(default), &wrap_values(fun.(&1)))
+    end
+  end
+
+  @doc """
+  Updates the field `name` with the given function.
+
+  If the field is present, `fun` is invoked with its list of values and the result
+  replaces them. Otherwise, raises `KeyError`.
+
+  ## Examples
+
+      iex> Req.Fields.update!(%{"a" => ["1"]}, "A", &(&1 ++ ["2"]))
+      %{"a" => ["1", "2"]}
+  """
+  def update!(fields, name, fun)
+
+  if @legacy? do
+    def update!(fields, name, fun) when is_binary(name) and is_function(fun, 1) do
+      case get_values(fields, name) do
+        [] -> raise KeyError, key: ensure_name_downcase(name), term: fields
+        values -> put_values(fields, name, fun.(values))
+      end
+    end
+
+    defp put_values(fields, name, values) do
+      name = ensure_name_downcase(name)
+      delete(fields, name) ++ for(value <- wrap_values(values), do: {name, value})
+    end
+  else
+    def update!(fields, name, fun) when is_binary(name) and is_function(fun, 1) do
+      name = ensure_name_downcase(name)
+      Map.update!(fields, name, &wrap_values(fun.(&1)))
+    end
+  end
+
+  defp wrap_values(values) do
+    values = List.wrap(values)
+
+    unless Enum.all?(values, &is_binary/1) do
+      raise ArgumentError,
+            "expected field value to be a binary or a list of binaries, got: #{inspect(values)}"
+    end
+
+    values
+  end
+
+  @doc """
   Deletes the field given by `name`.
   """
   def delete(fields, name)
