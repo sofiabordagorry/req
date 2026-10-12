@@ -144,6 +144,51 @@ defmodule Req.RequestTest do
     assert resp.body == ""
   end
 
+  describe "update_header/4" do
+    test "updates existing header values" do
+      req =
+        Req.new(headers: [{"accept", "application/json"}])
+        |> Req.Request.update_header("Accept", "text/html", &(&1 ++ ["text/plain"]))
+
+      assert Req.Request.get_header(req, "accept") == ["application/json", "text/plain"]
+    end
+
+    test "sets default when header is missing" do
+      req = Req.Request.update_header(Req.new(), "accept", "text/html", fn _ -> flunk() end)
+      assert Req.Request.get_header(req, "accept") == ["text/html"]
+    end
+
+    test "fun can return a single binary" do
+      req =
+        Req.new(headers: [{"accept", ["a", "b"]}])
+        |> Req.Request.update_header("accept", "x", &Enum.join(&1, ", "))
+
+      assert Req.Request.get_header(req, "accept") == ["a, b"]
+    end
+
+    test "raises on invalid values" do
+      assert_raise ArgumentError, ~r/expected field value to be a binary/, fn ->
+        Req.Request.update_header(Req.new(), "accept", 1, & &1)
+      end
+    end
+  end
+
+  describe "update_header!/3" do
+    test "updates existing header values" do
+      req =
+        Req.new(headers: [{"accept", "application/json"}])
+        |> Req.Request.update_header!("Accept", fn ["application/json"] -> "text/html" end)
+
+      assert Req.Request.get_header(req, "accept") == ["text/html"]
+    end
+
+    test "raises when header is missing" do
+      assert_raise KeyError, ~r/key "accept" not found/, fn ->
+        Req.Request.update_header!(Req.new(), "Accept", & &1)
+      end
+    end
+  end
+
   test "IEx.Info" do
     info = IEx.Info.info(Req.new(url: "https://elixir-lang.org"))
 

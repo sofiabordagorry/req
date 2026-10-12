@@ -904,6 +904,60 @@ defmodule Req.Request do
   end
 
   @doc """
+  Updates the header `name` with the given function.
+
+  If the header is present, `fun` is invoked with the list of its values and the
+  result (a binary or a list of binaries) replaces them. Otherwise, the header is
+  set to `default`.
+
+  See also "Headers" section in `Req` module documentation.
+
+  ## Examples
+
+      iex> req =
+      ...>   Req.new(headers: [{"accept", "application/json"}])
+      ...>   |> Req.Request.update_header("accept", "text/html", &(&1 ++ ["text/html"]))
+      iex> Req.Request.get_header(req, "accept")
+      ["application/json", "text/html"]
+
+      iex> req =
+      ...>   Req.new()
+      ...>   |> Req.Request.update_header("accept", "text/html", &(&1 ++ ["text/html"]))
+      iex> Req.Request.get_header(req, "accept")
+      ["text/html"]
+
+  """
+  @spec update_header(t(), binary(), binary() | [binary()], ([binary()] -> binary() | [binary()])) ::
+          t()
+  def update_header(%Req.Request{} = request, name, default, fun)
+      when is_binary(name) and is_function(fun, 1) do
+    update_in(request.headers, &Req.Fields.update(&1, name, default, fun))
+  end
+
+  @doc """
+  Updates the header `name` with the given function.
+
+  If the header is present, `fun` is invoked with the list of its values and the
+  result (a binary or a list of binaries) replaces them. Otherwise, raises `KeyError`.
+
+  See also "Headers" section in `Req` module documentation.
+
+  ## Examples
+
+      iex> req =
+      ...>   Req.new(headers: [{"accept", "application/json"}])
+      ...>   |> Req.Request.update_header!("accept", &(&1 ++ ["text/html"]))
+      iex> Req.Request.get_header(req, "accept")
+      ["application/json", "text/html"]
+
+  """
+  @spec update_header!(t(), binary(), ([binary()] -> binary() | [binary()])) :: t()
+  def update_header!(%Req.Request{} = request, name, fun)
+      when is_binary(name) and is_function(fun, 1) do
+    update_in(request.headers, &Req.Fields.update!(&1, name, fun))
+  end
+
+  @doc """
   Deletes the header given by `name`.
 
   All occurrences of the header are deleted, in case the header is repeated multiple times.
